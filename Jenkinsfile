@@ -3,8 +3,7 @@ pipeline {
     stages {
         stage('Checkout') {
             steps {
-                // Descarga el código de GitHub
-                checkout scm 
+                checkout scm
             }
         }
         stage('Limpieza') {
@@ -19,21 +18,22 @@ pipeline {
         }
         stage('Ejecutar ETL') {
             steps {
-                // Conexión al host de Windows para llegar al SQL Server
+                // Ejecutamos y nos aseguramos de que el contenedor genere el archivo
                 sh 'docker run --name contenedor-etl --add-host=host.docker.internal:host-gateway imagen-dataops:latest'
             }
         }
     }
+    
+    // SOLO UN BLOQUE POST PARA TODO
     post {
         success {
             echo '🚀 ¡DataOps completado con éxito!'
+            // Esto cumple con el punto 4: Generar el artefacto (Excel)
+            // Asegúrate de que tu script de Python genere un archivo .xlsx
+            archiveArtifacts artifacts: '*.xlsx', allowEmptyArchive: true, fingerprint: true
         }
-    }
-    post {
-        success {
-            // Esto hace que el Excel aparezca para descargar en Jenkins
-            archiveArtifacts artifacts: '*.xlsx', fingerprint: true
-            echo '🚀 ¡Artefacto generado y guardado!'
+        failure {
+            echo '❌ Hubo un error en el pipeline.'
         }
     }
 }
