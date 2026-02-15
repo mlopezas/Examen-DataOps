@@ -29,4 +29,11 @@ pipeline {
             echo '🚀 ¡DataOps completado con éxito!'
         }
     }
+    post {
+        success {
+            // Esto hace que el Excel aparezca para descargar en Jenkins
+            archiveArtifacts artifacts: '*.xlsx', fingerprint: true
+            echo '🚀 ¡Artefacto generado y guardado!'
+        }
+    }
 }
