@@ -18,18 +18,22 @@ pipeline {
         }
         stage('Ejecutar ETL') {
             steps {
-                // Ejecutamos y nos aseguramos de que el contenedor genere el archivo
-                sh 'docker run --name contenedor-etl --add-host=host.docker.internal:host-gateway imagen-dataops:latest'
+                // Modificado: Agregamos el volumen -v para mapear tu carpeta local
+                // Nota: Usamos barras / para la ruta de Windows en Docker
+                sh '''
+                    docker run --name contenedor-etl \
+                    --add-host=host.docker.internal:host-gateway \
+                    -v "C:/Users/Maikol_Lopez/Desktop/Examen_DataOps:/app/output" \
+                    imagen-dataops:latest
+                '''
             }
         }
     }
     
-    // SOLO UN BLOQUE POST PARA TODO
     post {
         success {
-            echo '🚀 ¡DataOps completado con éxito!'
-            // Esto cumple con el punto 4: Generar el artefacto (Excel)
-            // Asegúrate de que tu script de Python genere un archivo .xlsx
+            echo '🚀 ¡DataOps completado con éxito! El Excel debería estar en tu carpeta local.'
+            // Buscamos el excel en la carpeta output para mostrarlo en Jenkins también
             archiveArtifacts artifacts: '*.xlsx', allowEmptyArchive: true, fingerprint: true
         }
         failure {

@@ -1,6 +1,7 @@
 import pandas as pd
 from sqlalchemy import create_engine
 import urllib.parse 
+import os  # <-- Agregado para manejo de rutas
 
 # --- CONFIGURACIÓN ---
 # 1. ORIGEN (NUBE - POSTGRESQL)
@@ -17,7 +18,7 @@ SQL_USER = 'User_DataOps'
 SQL_PASS = 'Sql_2026_Secure'
 
 def run_etl():
-    print("--- 🚀 INICIANDO ETL (VERSIÓN CORREGIDA) ---")
+    print("--- 🚀 INICIANDO ETL (VERSIÓN CON EXCEL LOCAL) ---")
     
     try:
         # A. CONEXIÓN A POSTGRES
@@ -26,7 +27,6 @@ def run_etl():
         url_pg = f"postgresql+psycopg2://{PG_USER}:{pg_pass_encoded}@{PG_HOST}:{PG_PORT}/{PG_DB}"
         engine_pg = create_engine(url_pg)
         
-        # Leer empleados
         query = "SELECT empleado_id, num_documento, nom_empleado, ape_empleado, mnt_salario FROM rrhh.Empleado"
         df_empleados = pd.read_sql(query, engine_pg)
         print(f"   ✅ {len(df_empleados)} empleados descargados.")
@@ -34,32 +34,34 @@ def run_etl():
         # B. LECTURA CSV
         print("[2/4] Leyendo CSV local...")
         df_comisiones = pd.read_csv('ComisionEmpleados_V1_202602.csv', sep=';')
-        
-        # Renombramos la columna 'Comisión' para evitar problemas con la tilde
         df_comisiones.rename(columns={'Comisión': 'MontoComision'}, inplace=True)
         
-        # C. TRANSFORMACIÓN (CRUCE POR ID)
-        print("[3/4] Cruzando datos por ID de Empleado...")
-        
-        # JOIN usando 'empleado_id' que existe en ambos lados
+        # C. TRANSFORMACIÓN
+        print("[3/4] Cruzando datos y calculando sueldos...")
         df_final = pd.merge(df_empleados, df_comisiones, on='empleado_id', how='inner')
-        
-        # Calcular Sueldo Total
         df_final['SueldoTotal'] = df_final['mnt_salario'] + df_final['MontoComision']
         
         # D. CARGA SQL SERVER
-        print(f"[4/4] Guardando {len(df_final)} registros en SQL Server Local...")
+        print(f"[4/4] Guardando en SQL Server y generando Excel...")
         
         driver = 'ODBC Driver 17 for SQL Server'
         connection_string = f'DRIVER={{{driver}}};SERVER={SQL_SERVER};DATABASE={SQL_DB};UID={SQL_USER};PWD={SQL_PASS}'
         params = urllib.parse.quote_plus(connection_string)
         engine_sql = create_engine(f"mssql+pyodbc:///?odbc_connect={params}")
         
-        # Guardamos columnas limpias
         columnas_finales = ['empleado_id', 'nom_empleado', 'ape_empleado', 'num_documento', 'mnt_salario', 'MontoComision', 'SueldoTotal']
         df_final[columnas_finales].to_sql('ReportePagos_2026', engine_sql, if_exists='replace', index=False)
+
+        # --- NUEVA LÓGICA: GENERAR EXCEL EN CARPETA COMPARTIDA ---
+        output_dir = "/app/output"
+        if not os.path.exists(output_dir):
+            os.makedirs(output_dir)
+            
+        ruta_excel = os.path.join(output_dir, "Reporte_Final_Comisiones.xlsx")
+        df_final[columnas_finales].to_excel(ruta_excel, index=False)
         
-        print("🎉 ¡EXITO! Proceso terminado correctamente.")
+        print(f"🎉 ¡EXITO! Excel generado en: {ruta_excel}")
+        print("🎉 Proceso terminado correctamente.")
         
     except Exception as e:
         print(f"❌ ERROR: {e}")
